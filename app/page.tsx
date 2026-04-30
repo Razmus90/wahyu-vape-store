@@ -2,6 +2,7 @@
 
 import { useMemo, useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight, Zap, Shield, Truck, Star, Package } from 'lucide-react';
 import ProductCard from '@/components/ProductCard';
 import { ProductCache } from '@/lib/supabase';
@@ -83,7 +84,8 @@ export default function HomePage() {
       <section className="relative overflow-hidden bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 py-20 md:py-32">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl">
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            <div>
             <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-full px-4 py-1.5 mb-6">
               <Zap className="w-4 h-4 text-amber-400" />
               <span className="text-amber-400 text-sm font-medium">Toko Vape Terpercaya</span>
@@ -104,6 +106,10 @@ export default function HomePage() {
                   Lihat POD
                 </Link>
               )}
+            </div>
+            </div>
+            <div className="relative h-[400px] hidden md:block">
+              <Image src="/hero.png" alt="Wahyu Vape Store" fill className="object-contain" />
             </div>
           </div>
         </div>
