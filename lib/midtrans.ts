@@ -1,5 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase';
 
+const midtransClient = require('midtrans-client');
+
 type MidtransSnap = {
   createTransaction(param: Record<string, unknown>): Promise<{ token: string; redirect_url: string }>;
 };
@@ -80,7 +82,6 @@ export async function createTransaction(params: {
   // Both sandbox + production use Snap
   // Only difference: isProduction flag + keys
   if (!snapInstance) {
-    const midtransClient = require('midtrans-client');
     snapInstance = new midtransClient.Snap({
       isProduction: settings.is_production,
       serverKey: settings.server_key,
