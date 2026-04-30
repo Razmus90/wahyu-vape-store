@@ -108,8 +108,8 @@ export default function HomePage() {
               )}
             </div>
             </div>
-            <div className="relative h-[400px] hidden md:block">
-              <Image src="/hero.png" alt="Wahyu Vape Store" fill className="object-contain" />
+            <div className="relative h-full min-h-[400px] hidden md:block">
+              <Image src="/hero.png" alt="Wahyu Vape Store" fill className="object-cover" />
             </div>
           </div>
         </div>
