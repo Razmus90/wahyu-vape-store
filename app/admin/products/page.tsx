@@ -32,12 +32,19 @@ export default function AdminProductsPage() {
   const [showEmbKey, setShowEmbKey] = useState(false);
   const [savingEmb, setSavingEmb] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const perPage = 20;
+  const [total, setTotal] = useState(0);
+
   const fetchProducts = () => {
     setLoading(true);
-    fetch('/api/products?showAll=true')
+    fetch(`/api/products?showAll=true&page=${page}&perPage=${perPage}`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.success) setAllProducts(data.data);
+        if (data.success) {
+          setAllProducts(data.data);
+          setTotal(data.total || 0);
+        }
       })
       .finally(() => setLoading(false));
   };
@@ -350,6 +357,29 @@ export default function AdminProductsPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination */}
+              {Math.ceil(total / perPage) > 1 && (
+                <div className="flex justify-center items-center gap-4 p-4">
+                  <button
+                    onClick={() => { setPage(p => Math.max(1, p - 1)); fetchProducts(); }}
+                    disabled={page <= 1}
+                    className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-gray-400">
+                    Page {page} of {Math.ceil(total / perPage)} ({total} total)
+                  </span>
+                  <button
+                    onClick={() => { setPage(p => p + 1); fetchProducts(); }}
+                    disabled={page >= Math.ceil(total / perPage)}
+                    className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </>
