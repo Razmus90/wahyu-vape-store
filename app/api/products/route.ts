@@ -29,8 +29,9 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10);
     const perPageParam = searchParams.get('perPage') || '20';
     const perPage = Math.min(parseInt(perPageParam, 10), 100);
+    const showAll = searchParams.get('showAll') === 'true';
 
-    const showOutOfStock = await getShowOutOfStock();
+    const showOutOfStock = showAll ? true : await getShowOutOfStock();
     const hideOutOfStock = !showOutOfStock;
 
     let response: { data: unknown[]; total: number; page: number; perPage: number };
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
     }
 
     const res = NextResponse.json({ success: true, ...response });
-    res.headers.set('Cache-Control', 'max-age=300, stale-while-revalidate=600');
+    res.headers.set('Cache-Control', showAll ? 'no-cache' : 'max-age=300, stale-while-revalidate=600');
     return res;
   } catch {
     return NextResponse.json({ success: false, error: 'Failed to fetch products' }, { status: 500 });

@@ -34,7 +34,7 @@ export default function AdminProductsPage() {
 
   const fetchProducts = () => {
     setLoading(true);
-    fetch('/api/products')
+    fetch('/api/products?showAll=true')
       .then((r) => r.json())
       .then((data) => {
         if (data.success) setAllProducts(data.data);
