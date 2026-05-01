@@ -15,9 +15,11 @@ jobs:
         run: |
           curl -X GET \
             -H "Content-Type: application/json" \
+            -H "x-vercel-protection-bypass: ${{ secrets.VERCEL_BYPASS_TOKEN }}" \
             "${{ secrets.VERCEL_DEPLOYMENT_URL }}/api/cron/sync-products" \
             --fail \
             --silent \
             --show-error
         env:
           VERCEL_DEPLOYMENT_URL: ${{ secrets.VERCEL_DEPLOYMENT_URL }}
+          VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_BYPASS_TOKEN }}
