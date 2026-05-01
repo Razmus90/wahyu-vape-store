@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import { Search } from 'lucide-react';
 import ProductCard from '@/components/ProductCard';
 import { ProductCache } from '@/lib/supabase';
 
@@ -18,7 +18,10 @@ export default function ProductsPage() {
   const perPage = 20;
 
   const query = new URLSearchParams();
-  if (klasifikasi !== 'all') query.set('klasifikasi', klasifikasi);
+  if (klasifikasi !== 'all') {
+    query.set('filterField', 'klasifikasi');
+    query.set('filterValue', klasifikasi);
+  }
   if (search) query.set('search', search);
   query.set('page', String(page));
   query.set('perPage', String(perPage));
@@ -28,8 +31,6 @@ export default function ProductsPage() {
   const products: ProductCache[] = data?.success ? data.data : [];
   const total: number = data?.success ? data.total : 0;
   const totalPages = Math.ceil(total / perPage);
-
-  const klasifikasiOptions = ['all', ...new Set(products.map(p => p.klasifikasi).filter(Boolean))];
 
   const goToPage = (newPage: number) => {
     const p = Math.max(1, Math.min(newPage, totalPages));
@@ -69,7 +70,13 @@ export default function ProductsPage() {
           </div>
           <div className="flex items-center gap-2 flex-1">
             <button
-              onClick={() => { setKlasifikasi('all'); const params = new URLSearchParams(searchParams.toString()); params.set('klasifikasi', 'all'); params.set('page', '1'); router.replace(`/products?${params.toString()}`, { scroll: false }); }}
+              onClick={() => {
+                setKlasifikasi('all');
+                const params = new URLSearchParams(searchParams.toString());
+                params.delete('klasifikasi');
+                params.set('page', '1');
+                router.replace(`/products?${params.toString()}`, { scroll: false });
+              }}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${klasifikasi === 'all' ? 'bg-amber-500 text-gray-900' : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 border border-gray-700'}`}
             >
               All
@@ -87,8 +94,8 @@ export default function ProductsPage() {
               className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300 text-sm outline-none"
             >
               <option value="" className="bg-gray-800">Filter Klasifikasi...</option>
-              {klasifikasiOptions.filter(v => v !== 'all').map((val) => (
-                <option key={val} value={val} className="bg-gray-800">{val}</option>
+              {products.filter(p => p.klasifikasi).map((p, i) => (
+                <option key={`${p.klasifikasi}-${i}`} value={p.klasifikasi || ''} className="bg-gray-800">{p.klasifikasi}</option>
               ))}
             </select>
           </div>

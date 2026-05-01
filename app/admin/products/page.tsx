@@ -38,7 +38,15 @@ export default function AdminProductsPage() {
 
   const fetchProducts = () => {
     setLoading(true);
-    fetch(`/api/products?showAll=true&page=${page}&perPage=${perPage}`)
+    const params = new URLSearchParams();
+    params.set('showAll', 'true');
+    params.set('page', String(page));
+    params.set('perPage', String(perPage));
+    if (klasifikasi !== 'all') {
+      params.set('filterField', 'klasifikasi');
+      params.set('filterValue', klasifikasi);
+    }
+    fetch(`/api/products?${params.toString()}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.success) {
@@ -146,7 +154,7 @@ export default function AdminProductsPage() {
     }
   };
 
-  // Extract unique klasifikasi values
+  // Extract unique klasifikasi values from current page
   const klasifikasiOptions = useMemo(() => {
     const values = new Set<string>();
     allProducts.forEach((p) => {
@@ -154,12 +162,6 @@ export default function AdminProductsPage() {
     });
     return ['all', ...Array.from(values).sort()];
   }, [allProducts]);
-
-  // Apply filter client-side
-  const products = useMemo(() => {
-    if (klasifikasi === 'all') return allProducts;
-    return allProducts.filter((p) => p.klasifikasi === klasifikasi);
-  }, [allProducts, klasifikasi]);
 
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -263,7 +265,11 @@ export default function AdminProductsPage() {
                 <Filter className="w-4 h-4 text-gray-400" />
                 <select
                   value={klasifikasi}
-                  onChange={(e) => setKlasifikasi(e.target.value)}
+                  onChange={(e) => {
+                    setKlasifikasi(e.target.value);
+                    setPage(1);
+                    setTimeout(() => fetchProducts(), 0);
+                  }}
                   className="bg-transparent text-gray-300 text-sm outline-none"
                 >
                   {klasifikasiOptions.map((val) => (
@@ -294,7 +300,7 @@ export default function AdminProductsPage() {
                 <div key={i} className="bg-gray-900 border border-gray-800 rounded-xl p-4 animate-pulse h-16" />
               ))}
             </div>
-          ) : products.length === 0 ? (
+          ) : allProducts.length === 0 ? (
             <div className="text-center py-20">
               <Package className="w-12 h-12 text-gray-600 mx-auto mb-4" />
               <p className="text-gray-400">No products found</p>
@@ -316,7 +322,7 @@ export default function AdminProductsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {products.map((product) => (
+                    {allProducts.map((product) => (
                       <tr key={product.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
@@ -362,7 +368,7 @@ export default function AdminProductsPage() {
               {Math.ceil(total / perPage) > 1 && (
                 <div className="flex justify-center items-center gap-4 p-4">
                   <button
-                    onClick={() => { setPage(p => Math.max(1, p - 1)); fetchProducts(); }}
+                    onClick={() => { setPage(p => Math.max(1, p - 1)); setTimeout(() => fetchProducts(), 0); }}
                     disabled={page <= 1}
                     className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
                   >
@@ -372,7 +378,7 @@ export default function AdminProductsPage() {
                     Page {page} of {Math.ceil(total / perPage)} ({total} total)
                   </span>
                   <button
-                    onClick={() => { setPage(p => p + 1); fetchProducts(); }}
+                    onClick={() => { setPage(p => p + 1); setTimeout(() => fetchProducts(), 0); }}
                     disabled={page >= Math.ceil(total / perPage)}
                     className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
                   >
