@@ -57,7 +57,7 @@ export const chatService = {
 
     try {
       const lowerMsg = userMessage.toLowerCase();
-      const products = await productService.getAll();
+      const { data: products } = await productService.getAll();
 
     if (lowerMsg.includes('harga') || lowerMsg.includes('price') || lowerMsg.includes('berapa')) {
       const productMentioned = products.find((p) => lowerMsg.includes(p.name.toLowerCase().split(' ')[0]));

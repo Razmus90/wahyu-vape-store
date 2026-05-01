@@ -1,21 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { productService } from '@/lib/services/productService';
 
+export const revalidate = 300;
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const filterField = searchParams.get('filterField') || undefined;
     const filterValue = searchParams.get('filterValue') || undefined;
     const search = searchParams.get('search') || undefined;
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const perPageParam = searchParams.get('perPage') || '20';
+    const perPage = Math.min(parseInt(perPageParam, 10), 100);
+    let response: { data: unknown[]; total: number; page: number; perPage: number };
 
-    let products;
     if (search) {
-      products = await productService.search(search);
+      const all = await productService.search(search);
+      const total = all.length;
+      const start = (page - 1) * perPage;
+      response = { data: all.slice(start, start + perPage), total, page, perPage };
     } else {
-      products = await productService.getAll(filterField || undefined, filterValue || undefined);
+      const result = await productService.getAll(filterField, filterValue, perPage, (page - 1) * perPage);
+      response = { data: result.data, total: result.total, page, perPage };
     }
 
-    return NextResponse.json({ success: true, data: products });
+    const res = NextResponse.json({ success: true, ...response });
+    res.headers.set('Cache-Control', 'max-age=300, stale-while-revalidate=600');
+    return res;
   } catch {
     return NextResponse.json({ success: false, error: 'Failed to fetch products' }, { status: 500 });
   }

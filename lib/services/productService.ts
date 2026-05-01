@@ -4,14 +4,17 @@ import { fetchAllProducts, ExpandedProduct } from '@/lib/olseraApi';
 import { aiService } from './aiService';
 
 export const productService = {
-  async getAll(filterField?: string, filterValue?: string): Promise<ProductCache[]> {
-    let query = supabase.from('products_cache').select('*').order('created_at', { ascending: false });
+  async getAll(filterField?: string, filterValue?: string, limit?: number, offset?: number): Promise<{ data: ProductCache[]; total: number }> {
+    let query = supabase.from('products_cache').select('*', { count: 'exact' }).order('created_at', { ascending: false });
     if (filterField && filterValue && filterValue !== 'all') {
       query = query.eq(filterField, filterValue);
     }
-    const { data, error } = await query;
+    if (limit !== undefined && offset !== undefined) {
+      query = query.range(offset, offset + limit - 1);
+    }
+    const { data, error, count } = await query;
     if (error) throw error;
-    return data || [];
+    return { data: data || [], total: count || 0 };
   },
 
   async getById(id: string): Promise<ProductCache | null> {

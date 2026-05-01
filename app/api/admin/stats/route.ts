@@ -13,8 +13,8 @@ export async function GET() {
       success: true,
       data: {
         ...stats,
-        totalProducts: products.length,
-        lowStockProducts: products.filter((p) => p.stock < 10).length,
+        totalProducts: products.total,
+        lowStockProducts: products.data.filter((p) => p.stock < 10).length,
       },
     });
   } catch {
