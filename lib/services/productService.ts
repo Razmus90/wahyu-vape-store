@@ -4,10 +4,13 @@ import { fetchAllProducts, ExpandedProduct } from '@/lib/olseraApi';
 import { aiService } from './aiService';
 
 export const productService = {
-  async getAll(filterField?: string, filterValue?: string, limit?: number, offset?: number): Promise<{ data: ProductCache[]; total: number }> {
+  async getAll(filterField?: string, filterValue?: string, limit?: number, offset?: number, hideOutOfStock?: boolean): Promise<{ data: ProductCache[]; total: number }> {
     let query = supabase.from('products_cache').select('*', { count: 'exact' }).order('created_at', { ascending: false });
     if (filterField && filterValue && filterValue !== 'all') {
       query = query.eq(filterField, filterValue);
+    }
+    if (hideOutOfStock) {
+      query = query.gt('stock', 0);
     }
     if (limit !== undefined && offset !== undefined) {
       query = query.range(offset, offset + limit - 1);
@@ -126,13 +129,15 @@ export const productService = {
     return { synced, updated, deleted, embeddings, errors };
   },
 
-  async search(query: string): Promise<ProductCache[]> {
-    const { data, error } = await supabase
+  async search(query: string, hideOutOfStock?: boolean): Promise<ProductCache[]> {
+    let queryBuilder = supabase
       .from('products_cache')
       .select('*')
       .ilike('name', `%${query}%`)
       .order('name');
+    const { data, error } = await queryBuilder;
     if (error) throw error;
-    return data || [];
+    const results = data || [];
+    return hideOutOfStock ? results.filter(p => p.stock > 0) : results;
   },
 };
