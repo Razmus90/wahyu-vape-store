@@ -216,6 +216,12 @@ export async function fetchAllProducts(): Promise<ExpandedProduct[]> {
   return expandProducts(parentProducts);
 }
 
+// NOTE: Olsera API returns variants as SEPARATE products (not nested).
+// - Variant products appear as separate rows with `parent_id` field.
+// - Naming uses '-' separator (e.g., "Parent Name - 3MG") - done by Olsera.
+// - Nicotine variants (3MG, 6MG, etc.) follow this pattern.
+// - This function handles nested variants (may not be triggered by list API).
+// - Variants still sync correctly as separate products from API list.
 function expandProducts(parents: OlseraProduct[]): ExpandedProduct[] {
   const rows: ExpandedProduct[] = [];
 
