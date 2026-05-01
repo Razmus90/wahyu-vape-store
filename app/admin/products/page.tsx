@@ -1,8 +1,11 @@
 'use client';
 
-import { useMemo, useEffect, useState } from 'react';
-import { RefreshCw, Package, Filter, Database, Save, Eye, EyeOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import useSWR from 'swr';
+import { RefreshCw, Package, Filter, Search, Database, Save, Eye, EyeOff } from 'lucide-react';
 import { ProductCache } from '@/lib/supabase';
+
+const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 type Tab = 'products' | 'embedding';
 
@@ -19,6 +22,8 @@ export default function AdminProductsPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState('');
   const [klasifikasi, setKlasifikasi] = useState('all');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Product display settings (for user page)
   const [showOutOfStock, setShowOutOfStock] = useState(true);
@@ -35,9 +40,22 @@ export default function AdminProductsPage() {
   const [page, setPage] = useState(1);
   const perPage = 20;
   const [total, setTotal] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchProducts = () => {
+  const { data: klasifikasiData } = useSWR('/api/products/klasifikasi', fetcher);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
     setLoading(true);
+    setError(null);
+
     const params = new URLSearchParams();
     params.set('showAll', 'true');
     params.set('page', String(page));
@@ -46,20 +64,33 @@ export default function AdminProductsPage() {
       params.set('filterField', 'klasifikasi');
       params.set('filterValue', klasifikasi);
     }
-    fetch(`/api/products?${params.toString()}`)
+    if (debouncedSearch) {
+      params.set('search', debouncedSearch);
+    }
+
+    fetch(`/api/products?${params.toString()}`, { signal })
       .then((r) => r.json())
       .then((data) => {
+        if (signal.aborted) return;
         if (data.success) {
           setAllProducts(data.data);
           setTotal(data.total || 0);
+        } else {
+          setError(data.error || 'Failed to fetch');
         }
       })
-      .finally(() => setLoading(false));
-  };
+      .catch((err) => {
+        if (!signal.aborted) {
+          setError(err.message || 'Network error');
+        }
+      })
+      .finally(() => {
+        if (!signal.aborted) setLoading(false);
+      });
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
+    return () => controller.abort();
+  }, [page, klasifikasi, debouncedSearch]);
+
 
   useEffect(() => {
     if (activeTab === 'embedding') {
@@ -94,8 +125,8 @@ export default function AdminProductsPage() {
       const data = await res.json();
       if (data.success) {
         setSyncProgress(`Done! Synced: ${data.data.synced}, Deleted: ${data.data.deleted}, Embeddings: ${data.data.embeddings}, Errors: ${data.data.errors}`);
-        fetchProducts();
         setKlasifikasi('all');
+        setPage(1);
         setTimeout(() => setSyncProgress(''), 5000);
       } else {
         setSyncProgress('Failed: ' + data.error);
@@ -154,14 +185,7 @@ export default function AdminProductsPage() {
     }
   };
 
-  // Extract unique klasifikasi values from current page
-  const klasifikasiOptions = useMemo(() => {
-    const values = new Set<string>();
-    allProducts.forEach((p) => {
-      if (p.klasifikasi) values.add(p.klasifikasi);
-    });
-    return ['all', ...Array.from(values).sort()];
-  }, [allProducts]);
+  const klasifikasiOptions: string[] = ['all', ...(klasifikasiData?.success ? klasifikasiData.data : [])];
 
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -261,6 +285,16 @@ export default function AdminProductsPage() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative flex-[2]">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                  placeholder="Cari produk..."
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-12 pr-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 text-sm"
+                />
+              </div>
               <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2">
                 <Filter className="w-4 h-4 text-gray-400" />
                 <select
@@ -268,7 +302,6 @@ export default function AdminProductsPage() {
                   onChange={(e) => {
                     setKlasifikasi(e.target.value);
                     setPage(1);
-                    setTimeout(() => fetchProducts(), 0);
                   }}
                   className="bg-transparent text-gray-300 text-sm outline-none"
                 >
@@ -291,6 +324,12 @@ export default function AdminProductsPage() {
           {syncProgress && (
             <div className={`mb-4 p-3 rounded-lg text-sm ${syncProgress.includes('Failed') ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`}>
               {syncProgress}
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-4 p-3 rounded-lg bg-red-500/10 text-red-400 text-sm">
+              {error}
             </div>
           )}
 
@@ -368,7 +407,7 @@ export default function AdminProductsPage() {
               {Math.ceil(total / perPage) > 1 && (
                 <div className="flex justify-center items-center gap-4 p-4">
                   <button
-                    onClick={() => { setPage(p => Math.max(1, p - 1)); setTimeout(() => fetchProducts(), 0); }}
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page <= 1}
                     className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
                   >
@@ -378,7 +417,7 @@ export default function AdminProductsPage() {
                     Page {page} of {Math.ceil(total / perPage)} ({total} total)
                   </span>
                   <button
-                    onClick={() => { setPage(p => p + 1); setTimeout(() => fetchProducts(), 0); }}
+                    onClick={() => setPage(p => p + 1)}
                     disabled={page >= Math.ceil(total / perPage)}
                     className="px-4 py-2 bg-gray-800 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-700 transition-colors"
                   >

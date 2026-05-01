@@ -80,7 +80,7 @@ export const productService = {
         const { count, error: deleteError } = await supabaseAdmin
           .from('products_cache')
           .delete()
-          .not('olsera_product_id', 'in', `(${olseraIds.map(id => `"${id}"`).join(',')})`);
+          .not('olsera_product_id', 'in', olseraIds);
 
         if (deleteError) {
           await logService.create('WARN', 'PRODUCT_SYNC_CLEANUP_FAILED', deleteError.message, {});

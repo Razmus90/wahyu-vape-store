@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { Search } from 'lucide-react';
@@ -14,23 +14,39 @@ export default function ProductsPage() {
   const router = useRouter();
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [klasifikasi, setKlasifikasi] = useState(searchParams.get('klasifikasi') || 'all');
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
   const page = parseInt(searchParams.get('page') || '1', 10);
   const perPage = 20;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setSearch(searchParams.get('search') || '');
+    setKlasifikasi(searchParams.get('klasifikasi') || 'all');
+  }, [searchParams]);
 
   const query = new URLSearchParams();
   if (klasifikasi !== 'all') {
     query.set('filterField', 'klasifikasi');
     query.set('filterValue', klasifikasi);
   }
-  if (search) query.set('search', search);
+  if (debouncedSearch) query.set('search', debouncedSearch);
   query.set('page', String(page));
   query.set('perPage', String(perPage));
 
   const { data, error, isLoading } = useSWR(`/api/products?${query.toString()}`, fetcher);
+  const { data: klasifikasiData } = useSWR('/api/products/klasifikasi', fetcher);
+  const { data: displayData } = useSWR('/api/product-display', fetcher);
 
+  const showOutOfStock = displayData?.success ? displayData.data?.show_out_of_stock ?? true : true;
   const products: ProductCache[] = data?.success ? data.data : [];
+  const filteredProducts = showOutOfStock ? products : products.filter(p => p.stock > 0);
   const total: number = data?.success ? data.total : 0;
   const totalPages = Math.ceil(total / perPage);
+  const klasifikasiOptions: string[] = ['all', ...(klasifikasiData?.success ? klasifikasiData.data : [])];
 
   const goToPage = (newPage: number) => {
     const p = Math.max(1, Math.min(newPage, totalPages));
@@ -58,6 +74,7 @@ export default function ProductsPage() {
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
+                  setDebouncedSearch(search);
                   const params = new URLSearchParams(searchParams.toString());
                   params.set('search', search);
                   params.set('page', '1');
@@ -94,8 +111,8 @@ export default function ProductsPage() {
               className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-300 text-sm outline-none"
             >
               <option value="" className="bg-gray-800">Filter Klasifikasi...</option>
-              {products.filter(p => p.klasifikasi).map((p, i) => (
-                <option key={`${p.klasifikasi}-${i}`} value={p.klasifikasi || ''} className="bg-gray-800">{p.klasifikasi}</option>
+              {klasifikasiOptions.map((val) => (
+                <option key={val} value={val} className="bg-gray-800">{val === 'all' ? 'All Klasifikasi' : val}</option>
               ))}
             </select>
           </div>
@@ -112,7 +129,7 @@ export default function ProductsPage() {
           <div className="text-center py-20">
             <p className="text-red-400 text-lg">Failed to load products</p>
           </div>
-        ) : products.length === 0 ? (
+        ) : filteredProducts.length === 0 ? (
           <div className="text-center py-20">
             <Search className="w-12 h-12 text-gray-600 mx-auto mb-4" />
             <p className="text-gray-400 text-lg">No products found</p>
@@ -121,7 +138,7 @@ export default function ProductsPage() {
         ) : (
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {products.map((product) => (
+              {filteredProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
