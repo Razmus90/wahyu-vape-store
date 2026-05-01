@@ -90,17 +90,11 @@ async function getToken(forceRefresh = false): Promise<string> {
 }
 
 async function fetchInitialToken(): Promise<string> {
-  console.log('[Olsera DEBUG] APP_ID exists:', !!APP_ID, 'length:', APP_ID.length);
-  console.log('[Olsera DEBUG] SECRET_KEY exists:', !!SECRET_KEY, 'length:', SECRET_KEY.length);
-  console.log('[Olsera DEBUG] TOKEN_URL:', TOKEN_URL);
-
   const body = new URLSearchParams({
     app_id: APP_ID,
     secret_key: SECRET_KEY,
     grant_type: 'secret_key',
   }).toString();
-
-  console.log('[Olsera DEBUG] Request body length:', body.length);
 
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
@@ -113,7 +107,6 @@ async function fetchInitialToken(): Promise<string> {
 
   if (!res.ok) {
     const responseText = await res.text();
-    console.error('[Olsera DEBUG] Token request failed:', res.status, responseText);
     throw new Error(`Token request failed: ${res.status} ${responseText}`);
   }
 
