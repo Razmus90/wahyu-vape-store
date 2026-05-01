@@ -13,10 +13,15 @@ jobs:
     steps:
       - name: Call sync endpoint
         run: |
+          # Ensure URL ends with / and construct full endpoint URL
+          BASE_URL="${{ secrets.VERCEL_DEPLOYMENT_URL }}"
+          BASE_URL="${BASE_URL%/}"  # Remove trailing slash if present
+          FULL_URL="${BASE_URL}/api/cron/sync-products"
+          echo "Calling: $FULL_URL"
           curl -X GET \
             -H "Content-Type: application/json" \
             -H "x-vercel-protection-bypass: ${{ secrets.VERCEL_BYPASS_TOKEN }}" \
-            "${{ secrets.VERCEL_DEPLOYMENT_URL }}/api/cron/sync-products" \
+            "$FULL_URL" \
             --fail \
             --silent \
             --show-error
