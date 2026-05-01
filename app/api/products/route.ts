@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { productService } from '@/lib/services/productService';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export const revalidate = 300;
 
 async function getShowOutOfStock(): Promise<boolean> {
   try {
-    const { data } = await supabase
+    const { data } = await supabaseAdmin
       .from('chat_settings')
       .select('product_display')
       .order('created_at', { ascending: false })
