@@ -69,6 +69,7 @@ export async function createTransaction(params: {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  items?: Array<{ id: string; name: string; price: number; quantity: number }>;
 }): Promise<{
   token: string;
   redirect_url: string;
@@ -89,25 +90,45 @@ export async function createTransaction(params: {
     });
   }
 
+  // Midtrans limits: order_id max 50 chars
+  const truncatedOrderId = params.orderId.length > 50
+    ? params.orderId.slice(0, 50)
+    : params.orderId;
+
+  // Build item_details with truncated names (Midtrans API limit)
+  const itemDetails = params.items?.map(item => ({
+    id: item.id,
+    price: item.price,
+    quantity: item.quantity,
+    name: item.name.length > 50 ? item.name.slice(0, 47) + '...' : item.name,
+    category: 'Vape Products',
+  })) ?? [{
+    id: 'order-' + truncatedOrderId,
+    price: params.grossAmount,
+    quantity: 1,
+    name: 'Order ' + truncatedOrderId,
+    category: 'Vape Products',
+  }];
+
+  // Calculate gross_amount from items to match Midtrans validation
+  const calculatedGrossAmount = itemDetails.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
+
   const parameter = {
     transaction_details: {
-      order_id: params.orderId,
-      gross_amount: params.grossAmount,
+      order_id: truncatedOrderId,
+      gross_amount: calculatedGrossAmount,
     },
-    item_details: [
-      {
-        id: 'order-' + params.orderId,
-        price: params.grossAmount,
-        quantity: 1,
-        name: 'Order ' + params.orderId,
-        category: 'Vape Products',
-      },
-    ],
+    item_details: itemDetails,
     customer_details: {
       first_name: params.customerName,
       email: params.customerEmail,
       phone: params.customerPhone || '',
     },
+    // Remove enabled_payments - let Snap show all available methods
+    // Snap Preferences in dashboard controls which methods appear
   };
 
   const transaction = await snapInstance!.createTransaction(parameter);

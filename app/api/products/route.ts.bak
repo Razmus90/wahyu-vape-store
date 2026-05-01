@@ -1,0 +1,33 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { productService } from '@/lib/services/productService';
+
+export const revalidate = 300;
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const filterField = searchParams.get('filterField') || undefined;
+    const filterValue = searchParams.get('filterValue') || undefined;
+    const search = searchParams.get('search') || undefined;
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const perPage = Math.min(parseInt(searchParams.get('perPage') || '20', 100);
+
+    let response: any = {};
+
+    if (search) {
+      const all = await productService.search(search);
+      const total = all.length;
+      const start = (page - 1) * perPage;
+      response = { data: all.slice(start, start + perPage), total, page, perPage };
+    } else {
+      const result = await productService.getAll(filterField || undefined, filterValue || undefined, perPage, (page - 1) * perPage);
+      response = { data: result.data, total: result.total, page, perPage };
+    }
+
+    const res = NextResponse.json({ success: true, ...response });
+    res.headers.set('Cache-Control', 'max-age=300, stale-while-revalidate=600');
+    return res;
+  } catch {
+    return NextResponse.json({ success: false, error: 'Failed to fetch products' }, { status: 500 });
+  }
+}

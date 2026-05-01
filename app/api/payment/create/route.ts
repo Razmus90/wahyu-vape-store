@@ -28,6 +28,12 @@ export async function POST(req: NextRequest) {
         customerName: order.customer_name,
         customerEmail: order.customer_email,
         customerPhone: order.customer_phone,
+        items: order.order_items?.map(item => ({
+          id: item.product_id,
+          name: item.product_name,
+          price: item.unit_price,
+          quantity: item.quantity,
+        })),
       });
 
       await orderService.updatePaymentToken(orderId, payment.token, payment.redirect_url);
