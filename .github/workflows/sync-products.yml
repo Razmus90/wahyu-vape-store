@@ -14,12 +14,10 @@ jobs:
       - name: Call sync endpoint
         run: |
           curl -X GET \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json" \
             "${{ secrets.VERCEL_DEPLOYMENT_URL }}/api/cron/sync-products" \
             --fail \
             --silent \
             --show-error
         env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
           VERCEL_DEPLOYMENT_URL: ${{ secrets.VERCEL_DEPLOYMENT_URL }}
