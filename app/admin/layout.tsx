@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { LayoutDashboard, ShoppingBag, Package, MessageSquare, FileText, Settings, Menu, X, Zap, LogOut, Store, CreditCard } from 'lucide-react';
 
 const navItems = [
+  { href: '/admin/settings', label: 'General Settings', icon: Settings, exact: true },
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/admin/products', label: 'Products', icon: Package },

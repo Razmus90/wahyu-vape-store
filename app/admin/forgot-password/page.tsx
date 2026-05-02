@@ -1,37 +1,41 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Loader as Loader2, CircleAlert as AlertCircle, Zap } from 'lucide-react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Loader2, AlertCircle, CheckCircle, Mail, ArrowLeft } from 'lucide-react';
 
-export default function AdminLoginPage() {
+export default function ForgotPasswordPage() {
   const router = useRouter();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [resetLink, setResetLink] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setResetLink('');
 
     try {
-      const res = await fetch('/api/admin/login', {
+      const res = await fetch('/api/admin/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email }),
       });
 
       const data = await res.json();
 
       if (data.success) {
-        localStorage.setItem('admin_token', data.data.token);
-        document.cookie = `admin_token=${data.data.token}; path=/; max-age=86400`;
-        router.push('/admin');
+        // For MVP, show reset link from response
+        if (data.data?.reset_link) {
+          setResetLink(data.data.reset_link);
+        } else {
+          setResetLink('Check console for reset link (MVP mode)');
+        }
       } else {
-        setError(data.error || 'Invalid credentials');
+        setError(data.error || 'Failed to process request');
       }
     } catch {
       setError('Something went wrong. Please try again.');
@@ -45,10 +49,10 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center mx-auto mb-4">
-            <Zap className="w-7 h-7 text-gray-900" />
+            <Mail className="w-7 h-7 text-gray-900" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Admin Login</h1>
-          <p className="text-gray-400 text-sm mt-1">Wahyu Vape Store</p>
+          <h1 className="text-2xl font-bold text-white">Forgot Password</h1>
+          <p className="text-gray-400 text-sm mt-1">Enter your email to reset password</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
@@ -59,27 +63,28 @@ export default function AdminLoginPage() {
             </div>
           )}
 
-          <div>
-            <label className="block text-gray-400 text-sm mb-1.5">Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors"
-              placeholder="Enter username"
-            />
-          </div>
+          {resetLink && (
+            <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
+              <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+              <div>
+                <p className="text-green-400 text-sm font-medium">Reset link generated!</p>
+                <p className="text-gray-400 text-xs mt-1">Use this link to reset your password:</p>
+                <a href={resetLink} className="text-amber-500 hover:text-amber-400 text-xs break-all">
+                  {resetLink}
+                </a>
+              </div>
+            </div>
+          )}
 
           <div>
-            <label className="block text-gray-400 text-sm mb-1.5">Password</label>
+            <label className="block text-gray-400 text-sm mb-1.5">Email</label>
             <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors"
-              placeholder="Enter password"
+              placeholder="Enter your email"
             />
           </div>
 
@@ -91,23 +96,20 @@ export default function AdminLoginPage() {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Logging in...
+                Sending...
               </>
             ) : (
-              'Login'
+              'Send Reset Link'
             )}
           </button>
         </form>
 
-        <div className="text-center mt-4">
-          <Link href="/admin/forgot-password" className="text-amber-500 hover:text-amber-400 text-sm transition-colors">
-            Forgot Password?
+        <div className="text-center mt-6">
+          <Link href="/admin/login" className="text-amber-500 hover:text-amber-400 text-sm transition-colors inline-flex items-center gap-1">
+            <ArrowLeft className="w-3 h-3" />
+            Back to Login
           </Link>
         </div>
-
-        <p className="text-gray-600 text-xs text-center mt-6">
-          Access restricted to authorized personnel only.
-        </p>
       </div>
     </div>
   );

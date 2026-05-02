@@ -1,4 +1,5 @@
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+import { supabaseAdmin } from '@/lib/supabase';
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 function uint8ArrayToBase64url(bytes: Uint8Array): string {
@@ -67,8 +68,64 @@ export async function verifyToken(token: string): Promise<{ adminId: string } | 
   }
 }
 
-export function verifyPassword(password: string): boolean {
-  return password === ADMIN_PASSWORD;
+// Password hashing using Web Crypto API (SHA-256)
+export async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Initialize admin user from env vars if table is empty
+async function ensureAdminUser(): Promise<void> {
+  try {
+    const { count, error } = await supabaseAdmin
+      .from('admin_users')
+      .select('*', { count: 'exact', head: true });
+
+    if (error || (count || 0) === 0) {
+      // Create initial admin from env vars
+      const username = process.env.ADMIN_USERNAME || 'admin';
+      const password = process.env.ADMIN_PASSWORD || 'admin123';
+      const email = process.env.ADMIN_EMAIL || null;
+      const password_hash = await hashPassword(password);
+
+      await supabaseAdmin
+        .from('admin_users')
+        .upsert(
+          { username, password_hash, email },
+          { onConflict: 'username' }
+        );
+    }
+  } catch {
+    // Ignore errors (table might not exist yet)
+  }
+}
+
+export async function verifyPassword(password: string): Promise<boolean> {
+  await ensureAdminUser();
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('admin_users')
+      .select('password_hash')
+      .limit(1)
+      .single();
+
+    if (error || !data) {
+      // Fallback to env var for migration
+      const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+      return password === ADMIN_PASSWORD;
+    }
+
+    const inputHash = await hashPassword(password);
+    return inputHash === data.password_hash;
+  } catch {
+    // Fallback
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+    return password === ADMIN_PASSWORD;
+  }
 }
 
 export async function verifyAdmin(request?: Request): Promise<{ authenticated: boolean; adminId?: string }> {
