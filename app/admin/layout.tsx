@@ -12,6 +12,8 @@ const navItems = [
   { href: '/admin/products', label: 'Products', icon: Package },
   { href: '/admin/chats', label: 'Chat History', icon: MessageSquare },
   { href: '/admin/chat-settings', label: 'Chat Settings', icon: Settings },
+  { href: '/admin/whatsapp-settings', label: 'WAHA Settings', icon: Settings },
+  { href: '/admin/whatsapp-chats', label: 'WAHA Chats', icon: MessageSquare },
   { href: '/admin/midtrans-settings', label: 'Midtrans Settings', icon: CreditCard },
   { href: '/admin/logs', label: 'System Logs', icon: FileText },
 ];

@@ -1,0 +1,12 @@
+services:
+  waha:
+    image: devlikeapro/waha
+    container_name: waha
+    ports:
+      - "3000:3000"
+    environment:
+      - WAHA_API_KEY=${WAHA_API_KEY:-dev-like-secure-key-here}
+    volumes:
+      - ./waha-core/.sessions:/app/.sessions
+      - ./waha-core/.media:/app/.media
+    restart: unless-stopped
