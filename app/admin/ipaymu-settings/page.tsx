@@ -75,6 +75,7 @@ export default function IpaymuSettingsPage() {
           is_production: saved.is_production || false,
           sb_api_key: saved.sb_api_key || '',
           sb_va: saved.sb_va || '',
+          sb_mode: saved.sb_mode || 'sandbox',
           pr_api_key: saved.pr_api_key || '',
           pr_va: saved.pr_va || '',
         };
