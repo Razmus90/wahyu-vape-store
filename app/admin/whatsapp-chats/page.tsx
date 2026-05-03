@@ -21,14 +21,14 @@ export default function WhatsAppChatsPage() {
   }, [searchTerm]);
 
   // Fetch chats
-  const { data: chatsData, mutate: mutateChats } = useSWR(
+  const { data: chatsData, error: chatsSWRError, mutate: mutateChats } = useSWR(
     `/api/whatsapp/chats?search=${debouncedSearch}`,
     fetcher,
     { refreshInterval: 10000 }
   );
 
   // Fetch messages for selected chat
-  const { data: messagesData, mutate: mutateMessages } = useSWR(
+  const { data: messagesData, error: messagesSWRError, mutate: mutateMessages } = useSWR(
     selectedChat ? `/api/whatsapp/messages/${selectedChat}` : null,
     fetcher,
     { refreshInterval: 3000 }
@@ -36,7 +36,8 @@ export default function WhatsAppChatsPage() {
 
   const chats = chatsData?.success ? (chatsData.data || []) : [];
   const messages = messagesData?.success ? (messagesData.data || []) : [];
-  const chatsError = chatsData?.success === false ? chatsData.error : '';
+  const chatsError = chatsData?.success === false ? chatsData.error : (chatsSWRError ? String(chatsSWRError) : '');
+  const messagesError = messagesData?.success === false ? messagesData.error : (messagesSWRError ? String(messagesSWRError) : '');
 
   // Auto-scroll to bottom
   useEffect(() => {
