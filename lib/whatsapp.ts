@@ -22,11 +22,12 @@ export async function wahaRequest(
 }
 
 export async function startSession(name = 'default'): Promise<WAHAResponse> {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://wahyuvape.xyz';
   const res = await wahaRequest('sessions', {
     method: 'POST',
     body: JSON.stringify({
       name,
-      webhookUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/whatsapp`,
+      webhookUrl: `${baseUrl}/api/webhooks/whatsapp`,
     }),
   });
   return res.json();
