@@ -1,5 +1,22 @@
-const WAHA_URL = process.env.WAHA_API_URL || 'http://localhost:3000';
+import { supabaseAdmin } from '@/lib/supabase';
+
 const WAHA_KEY = process.env.WAHA_API_KEY!;
+
+async function getWAHAUrl(): Promise<string> {
+  // Read from settings table first, fall back to env var
+  try {
+    const { data } = await supabaseAdmin
+      .from('whatsapp_settings')
+      .select('waha_api_url')
+      .order('id', { ascending: true })
+      .limit(1)
+      .single();
+    if (data?.waha_api_url) return data.waha_api_url;
+  } catch {
+    // ignore, fall back to env
+  }
+  return process.env.WAHA_API_URL || 'http://localhost:3001';
+}
 
 export interface WAHAResponse {
   success: boolean;
@@ -11,7 +28,8 @@ export async function wahaRequest(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  return fetch(`${WAHA_URL}/api/${endpoint}`, {
+  const baseUrl = await getWAHAUrl();
+  return fetch(`${baseUrl}/api/${endpoint}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',

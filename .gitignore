@@ -33,6 +33,10 @@ yarn-error.log*
 .vercel
 memory_db/
 
+# WAHA sessions and media
+waha-core/.sessions/
+waha-core/.media/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

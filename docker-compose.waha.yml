@@ -3,7 +3,7 @@ services:
     image: devlikeapro/waha
     container_name: waha
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - WAHA_API_KEY=${WAHA_API_KEY:-dev-like-secure-key-here}
     volumes:
