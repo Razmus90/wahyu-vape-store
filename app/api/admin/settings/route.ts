@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     // Get admin user info
     const { data: admin, error: adminError } = await supabaseAdmin
       .from('admin_users')
-      .select('username, email, store_name, store_contact, store_address')
+      .select('username, email, store_name, store_contact, store_address, payment_gateway')
       .limit(1)
       .single();
 
@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
       data: {
         ...admin,
         product_display,
+        payment_gateway: admin?.payment_gateway || 'ipaymu',
       },
     });
   } catch (error) {
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { store_name, store_contact, store_address, product_display } = body;
+    const { store_name, store_contact, store_address, product_display, payment_gateway } = body;
 
     // Update admin user info
     if (store_name !== undefined || store_contact !== undefined || store_address !== undefined) {
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
           ...(store_name !== undefined && { store_name }),
           ...(store_contact !== undefined && { store_contact }),
           ...(store_address !== undefined && { store_address }),
+          ...(payment_gateway !== undefined && { payment_gateway }),
           updated_at: new Date().toISOString(),
         })
         .eq('id', admin.id);

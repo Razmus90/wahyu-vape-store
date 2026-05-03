@@ -10,6 +10,7 @@ type Settings = {
   store_name?: string;
   store_contact?: string;
   store_address?: string;
+  payment_gateway?: string;
   product_display?: { show_out_of_stock: boolean };
 };
 
@@ -36,6 +37,9 @@ export default function AdminSettingsPage() {
   // Display preferences
   const [showOutOfStock, setShowOutOfStock] = useState(true);
 
+  // Payment gateway
+  const [paymentGateway, setPaymentGateway] = useState('ipaymu');
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -51,6 +55,7 @@ export default function AdminSettingsPage() {
         setStoreContact(data.data.store_contact || '');
         setStoreAddress(data.data.store_address || '');
         setShowOutOfStock(data.data.product_display?.show_out_of_stock ?? true);
+        setPaymentGateway(data.data.payment_gateway || 'ipaymu');
       }
     } catch {
       setError('Failed to fetch settings');
@@ -242,6 +247,56 @@ export default function AdminSettingsPage() {
           </div>
 
           <form onSubmit={handleSaveStoreInfo} className="space-y-4">
+
+            {/* Payment Gateway Toggle */}
+            <div className="pt-4 border-t border-gray-800">
+              <h3 className="text-white font-medium mb-3">Payment Gateway</h3>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-gray-300 text-sm">Current Gateway</p>
+                  <p className="text-amber-400 text-sm font-medium">
+                    {paymentGateway === 'ipaymu' ? 'iPaymu QRIS (Primary)' : 'Midtrans (Fallback)'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const next = paymentGateway === 'ipaymu' ? 'midtrans' : 'ipaymu';
+                    setPaymentGateway(next);
+                    try {
+                      const res = await fetch('/api/admin/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ payment_gateway: next }),
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        setSuccess(`Payment gateway switched to ${next}`);
+                        setTimeout(() => setSuccess(''), 3000);
+                      }
+                    } catch (e) {
+                      console.error('Failed to save gateway:', e);
+                      setPaymentGateway(paymentGateway); // revert
+                    }
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    paymentGateway === 'ipaymu' ? 'bg-amber-500' : 'bg-gray-600'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      paymentGateway === 'ipaymu' ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+              <p className="text-gray-600 text-xs">
+                {paymentGateway === 'ipaymu'
+                  ? 'iPaymu QRIS is active. Customers will scan QR codes for payment.'
+                  : 'Midtrans is active. Customers will use Midtrans payment page.'}
+              </p>
+            </div>
+
             <div>
               <label className="block text-gray-400 text-sm mb-1.5">Store Name</label>
               <input
@@ -271,20 +326,6 @@ export default function AdminSettingsPage() {
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-amber-500 transition-colors resize-none"
                 placeholder="Enter store address..."
               />
-            </div>
-
-            {/* Display Preferences */}
-            <div className="pt-4 border-t border-gray-800">
-              <h3 className="text-white font-medium mb-3">Display Preferences</h3>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showOutOfStock}
-                  onChange={(e) => setShowOutOfStock(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-700 bg-gray-800 text-amber-500 focus:ring-amber-500 focus:ring-offset-gray-900"
-                />
-                <span className="text-gray-300 text-sm">Show out of stock products</span>
-              </label>
             </div>
 
             <button

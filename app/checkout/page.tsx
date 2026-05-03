@@ -14,6 +14,7 @@ export default function CheckoutPage() {
   const [orderId, setOrderId] = useState('');
   const [paymentToken, setPaymentToken] = useState<string | null>(null);
   const [waitingPayment, setWaitingPayment] = useState(false);
+  const [paymentGateway, setPaymentGateway] = useState('ipaymu');
 
   const [form, setForm] = useState({
     customer_name: '',
@@ -26,6 +27,17 @@ export default function CheckoutPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
+
+  useEffect(() => {
+    fetch('/api/admin/settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data?.payment_gateway) {
+          setPaymentGateway(data.data.payment_gateway);
+        }
+      })
+      .catch(err => console.error('Failed to fetch payment gateway:', err));
+  }, []);
 
   useEffect(() => {
     if (!paymentToken) return;
@@ -116,18 +128,38 @@ export default function CheckoutPage() {
       setOrderId(createdOrderId);
 
       try {
-        const paymentRes = await fetch('/api/payment/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId: createdOrderId }),
-        });
+        if (paymentGateway === 'ipaymu') {
+          // iPaymu QRIS flow
+          const paymentRes = await fetch('/api/payment/ipaymu', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: createdOrderId }),
+          });
 
-        const paymentResult = await paymentRes.json();
-        if (paymentResult.success) {
-          setPaymentToken(paymentResult.data.token);
+          const paymentResult = await paymentRes.json();
+          if (paymentResult.success) {
+            // Redirect to QR code page
+            clearCart();
+            router.push(`/payment/ipaymu/${createdOrderId}`);
+          } else {
+            setError(paymentResult.error || 'QRIS payment creation failed');
+            setLoading(false);
+          }
         } else {
-          setError(paymentResult.error || 'Payment creation failed');
-          setLoading(false);
+          // Midtrans Snap flow
+          const paymentRes = await fetch('/api/payment/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: createdOrderId }),
+          });
+
+          const paymentResult = await paymentRes.json();
+          if (paymentResult.success) {
+            setPaymentToken(paymentResult.data.token);
+          } else {
+            setError(paymentResult.error || 'Payment creation failed');
+            setLoading(false);
+          }
         }
       } catch {
         setError('Payment creation failed. Please try placing the order again.');
