@@ -3,33 +3,38 @@ import { verifyAdmin } from '@/lib/auth';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getContacts } from '@/lib/whatsapp';
 
-// In-memory contact cache (5 min TTL)
-let contactCache: { map: Map<string, string>; expires: number } | null = null;
-const CONTACT_CACHE_TTL = 5 * 60 * 1000;
-
 async function getContactNameMap(): Promise<Map<string, string>> {
-  const now = Date.now();
-  if (contactCache && contactCache.expires > now) {
-    return contactCache.map;
-  }
-
   const result = new Map<string, string>();
-  try {
-    const res = await getContacts();
-    if (res.success) {
-      ((res.data as any[]) || []).forEach((c: any) => {
-        const name = c.name || c.pushname || '';
-        if (name) {
-          result.set(c.id, name);
-        }
-      });
+  let lastError: any = null;
+
+  // Retry up to 2 times (WAHA Puppeteer sometimes crashes)
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await getContacts();
+      if (res.success) {
+        ((res.data as any[]) || []).forEach((c: any) => {
+          const name = c.name || c.pushname || '';
+          if (name) {
+            result.set(c.id, name);
+          }
+        });
+        console.log('[CHATS-API] Got', result.size, 'contact names from WAHA (attempt', attempt, ')');
+        return result;
+      }
+      lastError = 'WAHA returned success:false';
+    } catch (e: any) {
+      lastError = e.message;
+      console.error('[CHATS-API] Failed to fetch contacts (attempt', attempt, '):', e.message);
     }
-  } catch (e: any) {
-    console.error('[CHATS-API] Failed to fetch contacts:', e.message);
+
+    if (attempt < 3) {
+      console.log('[CHATS-API] Retrying in 2s...');
+      await new Promise(r => setTimeout(r, 2000));
+    }
   }
 
-  contactCache = { map: result, expires: now + CONTACT_CACHE_TTL };
-  return result;
+  console.error('[CHATS-API] All attempts failed. Last error:', lastError);
+  return result; // Return empty map → chat list shows phone numbers
 }
 
 export async function GET(request: NextRequest) {
