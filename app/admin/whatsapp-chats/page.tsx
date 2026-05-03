@@ -1,20 +1,28 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import useSWR from 'swr';
-import { Send, MessageSquare, Clock, User } from 'lucide-react';
+import { Send, MessageSquare, Clock, User, Search } from 'lucide-react';
 
-const fetcher = (url: string) => fetch(url).then(r => r.json());
+const fetcher = (url: string) => fetch(url, { credentials: 'include' }).then(r => r.json());
 
 export default function WhatsAppChatsPage() {
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Fetch chats
   const { data: chatsData, mutate: mutateChats } = useSWR(
-    '/api/whatsapp/chats',
+    `/api/whatsapp/chats?search=${debouncedSearch}`,
     fetcher,
     { refreshInterval: 10000 }
   );
@@ -26,8 +34,9 @@ export default function WhatsAppChatsPage() {
     { refreshInterval: 3000 }
   );
 
-  const chats = chatsData?.data || [];
-  const messages = messagesData?.data || [];
+  const chats = chatsData?.success ? (chatsData.data || []) : [];
+  const messages = messagesData?.success ? (messagesData.data || []) : [];
+  const chatsError = chatsData?.success === false ? chatsData.error : '';
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -41,6 +50,7 @@ export default function WhatsAppChatsPage() {
       const res = await fetch('/api/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ chatId: selectedChat, text: message }),
       });
       const result = await res.json();
@@ -74,13 +84,28 @@ export default function WhatsAppChatsPage() {
       {/* Chat List Sidebar */}
       <div className="w-80 bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col">
         <div className="p-4 border-b border-gray-800">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-3">
             <MessageSquare className="w-5 h-5" />
             WhatsApp Chats
           </h2>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Search chats..."
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500"
+            />
+          </div>
         </div>
+        {chatsError && (
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-3 m-4 rounded-lg">
+            {chatsError}
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto">
-          {chats.length === 0 ? (
+          {chats.length === 0 && !chatsError ? (
             <p className="text-gray-500 text-sm text-center py-8">No chats yet</p>
           ) : (
             chats.map((chat: any) => (
@@ -92,11 +117,28 @@ export default function WhatsAppChatsPage() {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0">
+                  <div className="relative w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0">
                     <User className="w-5 h-5 text-gray-400" />
+                    {chat.unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-amber-500 text-gray-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                        {chat.unreadCount > 9 ? '9+' : chat.unreadCount}
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{chat.name}</p>
+                    <div className="flex items-center justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm truncate ${chat.unreadCount > 0 ? 'font-bold text-white' : 'font-medium text-white'}`}>
+                          {chat.name}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">{chat.id.replace('@c.us', '').replace('@g.us', '')}</p>
+                      </div>
+                      {chat.unreadCount > 0 && (
+                        <span className="ml-2 bg-amber-500 text-gray-900 text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0">
+                          {chat.unreadCount}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-400 truncate">{chat.lastMessage || 'No messages'}</p>
                   </div>
                   {chat.lastTimestamp && (

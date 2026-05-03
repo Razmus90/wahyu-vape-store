@@ -1,26 +1,34 @@
 import { supabaseAdmin } from '@/lib/supabase';
 
-const WAHA_KEY = process.env.WAHA_API_KEY!;
-
-async function getWAHAUrl(): Promise<string> {
-  // Read from settings table first, fall back to env var
+export async function getWAHACredentials(): Promise<{ url: string; apiKey: string }> {
   try {
     const { data } = await supabaseAdmin
       .from('whatsapp_settings')
-      .select('waha_api_url')
+      .select('waha_api_url, waha_api_key')
       .order('id', { ascending: true })
       .limit(1)
-      .single();
-    if (data?.waha_api_url) return data.waha_api_url;
+      .maybeSingle();
+    const url = data?.waha_api_url || process.env.WAHA_API_URL || 'http://localhost:3001';
+    const apiKey = data?.waha_api_key || process.env.WAHA_API_KEY || '';
+    return { url, apiKey };
   } catch {
-    // ignore, fall back to env
+    // ignore
   }
-  return process.env.WAHA_API_URL || 'http://localhost:3001';
+  return {
+    url: process.env.WAHA_API_URL || 'http://localhost:3001',
+    apiKey: process.env.WAHA_API_KEY || '',
+  };
+}
+
+async function getWAHAUrl(): Promise<string> {
+  const { url } = await getWAHACredentials();
+  return url;
 }
 
 export interface WAHAResponse {
   success: boolean;
   data?: unknown;
+  error?: string;
   message?: string;
 }
 
@@ -28,12 +36,12 @@ export async function wahaRequest(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const baseUrl = await getWAHAUrl();
-  return fetch(`${baseUrl}/api/${endpoint}`, {
+  const { url, apiKey } = await getWAHACredentials();
+  return fetch(`${url}/api/${endpoint}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      'X-Api-Key': WAHA_KEY,
+      'X-Api-Key': apiKey,
       ...(options.headers || {}),
     },
   });
@@ -42,7 +50,7 @@ export async function wahaRequest(
 export async function startSession(name = 'default'): Promise<WAHAResponse> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://wahyuvape.xyz';
 
-  // Try restart first (works whether running or stopped)
+  // Restart works whether running or stopped
   const restartRes = await wahaRequest(`sessions/${name}/restart`, {
     method: 'POST',
     body: JSON.stringify({
@@ -52,8 +60,8 @@ export async function startSession(name = 'default'): Promise<WAHAResponse> {
 
   const restartData = await restartRes.json();
 
-  // If session doesn't exist (restart fails), create it
-  if (restartData?.statusCode === 404 || restartData?.error === 'Not Found') {
+  // If session doesn't exist, create it
+  if (restartRes.status === 404 || restartData?.statusCode === 404) {
     const createRes = await wahaRequest('sessions', {
       method: 'POST',
       body: JSON.stringify({
@@ -61,27 +69,56 @@ export async function startSession(name = 'default'): Promise<WAHAResponse> {
         webhookUrl: `${baseUrl}/api/webhooks/whatsapp`,
       }),
     });
-    return createRes.json();
+    const createData = await createRes.json();
+    if (createRes.ok) {
+      return { success: true, data: createData };
+    }
+    return { success: false, error: createData?.message || createData?.error || 'Failed to start session' };
   }
 
-  return restartData;
+  if (restartRes.ok) {
+    return { success: true, data: restartData };
+  }
+  return { success: false, error: restartData?.message || restartData?.error || 'Failed to start session' };
 }
 
 export async function stopSession(name = 'default'): Promise<WAHAResponse> {
   const res = await wahaRequest(`sessions/${name}`, {
     method: 'DELETE',
   });
-  return res.json();
+  const data = await res.json();
+  if (res.ok) {
+    return { success: true, data };
+  }
+  return { success: false, error: data?.message || data?.error || 'Failed to stop session' };
 }
 
 export async function getSessionStatus(name = 'default'): Promise<WAHAResponse> {
   const res = await wahaRequest(`sessions/${name}`);
-  return res.json();
+  const data = await res.json();
+  if (res.ok) {
+    return { success: true, data };
+  }
+  return { success: false, error: data?.message || data?.error || 'Failed to get status' };
 }
 
 export async function getQR(): Promise<WAHAResponse> {
-  const res = await wahaRequest('screenshot');
-  return res.json();
+  const res = await wahaRequest(`default/auth/qr`, {
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  if (res.ok) {
+    const data = await res.json();
+    if (data?.data) {
+      return { success: true, data: data.data };
+    }
+    return { success: true, data };
+  }
+
+  const errorData = await res.json().catch(() => ({}));
+  return { success: false, error: errorData?.message || errorData?.error || 'Failed to get QR' };
 }
 
 export async function sendMessage(
@@ -93,10 +130,19 @@ export async function sendMessage(
     method: 'POST',
     body: JSON.stringify({ chatId, text, session }),
   });
-  return res.json();
+  const data = await res.json();
+  if (res.ok) {
+    return { success: true, data };
+  }
+  return { success: false, error: data?.message || data?.error || 'Failed to send message' };
 }
 
 export async function getContacts(): Promise<WAHAResponse> {
-  const res = await wahaRequest('contacts');
-  return res.json();
+  // WAHA contacts endpoint: GET /api/contacts/all?session={name}
+  const res = await wahaRequest('contacts/all?session=default');
+  const data = await res.json();
+  if (res.ok) {
+    return { success: true, data };
+  }
+  return { success: false, error: data?.message || data?.error || 'Failed to get contacts' };
 }

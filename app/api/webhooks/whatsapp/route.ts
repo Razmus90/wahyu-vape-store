@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getWAHACredentials } from '@/lib/whatsapp';
 
 export async function POST(request: NextRequest) {
   try {
-    // Validate API key
+    // Validate API key (check DB + env)
     const apiKey = request.headers.get('X-Api-Key') || request.headers.get('x-api-key');
-    const expectedKey = process.env.WAHA_API_KEY;
+    const { apiKey: expectedKey } = await getWAHACredentials();
 
     if (expectedKey && apiKey !== expectedKey) {
+      console.log('[WAHA-WEBHOOK] Unauthorized request, key:', apiKey?.slice(0, 8) + '...');
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -15,6 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    console.log('[WAHA-WEBHOOK] Received event:', body.event, 'payload:', JSON.stringify(body.payload)?.slice(0, 200));
 
     // Handle WAHA webhook events
     // WAHA sends: { event: 'message.any', payload: { id, body, from, fromMe, timestamp, ... } }
@@ -28,7 +31,8 @@ export async function POST(request: NextRequest) {
       const mediaUrl = payload.media?.url || null;
 
       if (chatId) {
-        await supabaseAdmin.from('whatsapp_messages').insert({
+        console.log('[WAHA-WEBHOOK] Saving message:', { chatId, fromMe, message: message?.slice(0, 50) });
+        const { error: insertError } = await supabaseAdmin.from('whatsapp_messages').insert({
           chat_id: chatId,
           from_me: fromMe,
           message: message,
@@ -36,6 +40,11 @@ export async function POST(request: NextRequest) {
           timestamp: new Date(payload.timestamp ? payload.timestamp * 1000 : Date.now()).toISOString(),
           is_read: false,
         });
+        if (insertError) {
+          console.error('[WAHA-WEBHOOK] Failed to save message:', insertError);
+        } else {
+          console.log('[WAHA-WEBHOOK] Message saved successfully');
+        }
       }
     }
 
