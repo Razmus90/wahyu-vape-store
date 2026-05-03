@@ -19,9 +19,9 @@ export async function GET(request: NextRequest) {
       .select('*')
       .order('id', { ascending: true })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') throw error;
+    if (error) throw error;
 
     const settings = data || null;
     if (settings?.waha_api_key) {
@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true, data: settings });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to fetch settings';
+  } catch (error: any) {
+    const message = error?.message || 'Failed to fetch settings';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
@@ -51,14 +51,15 @@ export async function POST(request: NextRequest) {
       updates.waha_api_key = String(waha_api_key);
     }
 
+    // Try to get existing record
     const { data: existing } = await supabaseAdmin
       .from('whatsapp_settings')
       .select('id')
       .limit(1)
-      .single();
+      .maybeSingle();
 
     let result;
-    if (existing) {
+    if (existing?.id) {
       result = await supabaseAdmin
         .from('whatsapp_settings')
         .update(updates)
@@ -79,8 +80,8 @@ export async function POST(request: NextRequest) {
     if (saved?.waha_api_key) saved.waha_api_key = maskKey(saved.waha_api_key);
 
     return NextResponse.json({ success: true, data: saved });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to save settings';
+  } catch (error: any) {
+    const message = error?.message || 'Failed to save settings';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

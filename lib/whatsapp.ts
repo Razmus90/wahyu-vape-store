@@ -41,14 +41,30 @@ export async function wahaRequest(
 
 export async function startSession(name = 'default'): Promise<WAHAResponse> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://wahyuvape.xyz';
-  const res = await wahaRequest('sessions', {
+
+  // Try restart first (works whether running or stopped)
+  const restartRes = await wahaRequest(`sessions/${name}/restart`, {
     method: 'POST',
     body: JSON.stringify({
-      name,
       webhookUrl: `${baseUrl}/api/webhooks/whatsapp`,
     }),
   });
-  return res.json();
+
+  const restartData = await restartRes.json();
+
+  // If session doesn't exist (restart fails), create it
+  if (restartData?.statusCode === 404 || restartData?.error === 'Not Found') {
+    const createRes = await wahaRequest('sessions', {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        webhookUrl: `${baseUrl}/api/webhooks/whatsapp`,
+      }),
+    });
+    return createRes.json();
+  }
+
+  return restartData;
 }
 
 export async function stopSession(name = 'default'): Promise<WAHAResponse> {

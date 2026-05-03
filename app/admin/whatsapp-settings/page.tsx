@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import useSWR from 'swr';
 import { Settings, QrCode, Play, Square, RefreshCw, Save, Eye, EyeOff } from 'lucide-react';
 
-const fetcher = (url: string) => fetch(url).then(r => r.json());
+const fetcher = (url: string) => fetch(url, { credentials: 'include' }).then(r => r.json());
 
 function StatusBadge({ status }: { status: string }) {
   const color = status === 'WORKING' ? 'bg-green-500/20 text-green-400 border-green-500/30'
@@ -25,6 +25,8 @@ export default function WhatsAppSettingsPage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showKey, setShowKey] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   // Settings state
   const [settings, setSettings] = useState({ waha_api_url: '', waha_api_key: '' });
@@ -70,20 +72,26 @@ export default function WhatsAppSettingsPage() {
     setInputs({ ...settings });
     setShowKey(false);
     setEditing(true);
+    setErrorMsg('');
+    setSuccessMsg('');
   };
 
   const handleCancel = () => {
     setInputs({ ...settings });
     setEditing(false);
     setShowKey(false);
+    setErrorMsg('');
   };
 
   const handleSave = async () => {
     setSaving(true);
+    setErrorMsg('');
+    setSuccessMsg('');
     try {
       const res = await fetch('/api/admin/whatsapp-settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(inputs),
       });
       const data = await res.json();
@@ -99,12 +107,13 @@ export default function WhatsAppSettingsPage() {
         });
         setEditing(false);
         setShowKey(false);
-        alert('WAHA settings saved!');
+        setSuccessMsg('WAHA settings saved!');
+        setTimeout(() => setSuccessMsg(''), 3000);
       } else {
-        alert('Failed to save: ' + data.error);
+        setErrorMsg('Failed to save: ' + (data.error || 'Unknown error'));
       }
     } catch {
-      alert('Failed to save settings.');
+      setErrorMsg('Failed to save settings.');
     } finally {
       setSaving(false);
     }
@@ -112,8 +121,16 @@ export default function WhatsAppSettingsPage() {
 
   const handleStart = async () => {
     setActionLoading(true);
+    setErrorMsg('');
     try {
-      await fetch('/api/whatsapp/session', { method: 'POST' });
+      const res = await fetch('/api/whatsapp/session', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setErrorMsg('Failed to start: ' + (data.error || 'Unknown error'));
+      }
       mutateStatus();
     } finally {
       setActionLoading(false);
@@ -122,8 +139,16 @@ export default function WhatsAppSettingsPage() {
 
   const handleStop = async () => {
     setActionLoading(true);
+    setErrorMsg('');
     try {
-      await fetch('/api/whatsapp/session', { method: 'DELETE' });
+      const res = await fetch('/api/whatsapp/session', {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setErrorMsg('Failed to stop: ' + (data.error || 'Unknown error'));
+      }
       mutateStatus();
       mutateQr();
     } finally {
@@ -136,12 +161,24 @@ export default function WhatsAppSettingsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">WAHA Settings</h1>
         <button
-          onClick={() => { mutateStatus(); mutateQr(); mutateSettings(); }}
+          onClick={() => { mutateStatus(); mutateQr(); mutateSettings(); setErrorMsg(''); }}
           className="p-2 text-gray-400 hover:text-white transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Error/Success Messages */}
+      {errorMsg && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-3 rounded-lg">
+          {errorMsg}
+        </div>
+      )}
+      {successMsg && (
+        <div className="bg-green-500/10 border border-green-500/30 text-green-400 text-sm p-3 rounded-lg">
+          {successMsg}
+        </div>
+      )}
 
       {/* Session Status */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
@@ -159,7 +196,7 @@ export default function WhatsAppSettingsPage() {
               className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
             >
               <Play className="w-4 h-4" />
-              Start Session
+              {actionLoading ? 'Starting...' : 'Start Session'}
             </button>
           )}
           {isConnected && (
@@ -169,7 +206,7 @@ export default function WhatsAppSettingsPage() {
               className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
             >
               <Square className="w-4 h-4" />
-              Stop Session
+              {actionLoading ? 'Stopping...' : 'Stop Session'}
             </button>
           )}
         </div>
